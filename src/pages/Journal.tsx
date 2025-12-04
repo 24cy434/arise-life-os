@@ -1,199 +1,72 @@
 import { useState } from "react";
-import {
-  Plus,
-  Search,
-  Calendar,
-  Tag,
-  BookOpen,
-  Sparkles,
-  Filter,
-} from "lucide-react";
+import { Plus, Search, BookOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import JournalEditor from "@/components/journal/JournalEditor";
-import JournalEntryCard from "@/components/journal/JournalEntryCard";
-import MoodTrend from "@/components/journal/MoodTrend";
-import JournalPrompts from "@/components/journal/JournalPrompts";
+import { Textarea } from "@/components/ui/textarea";
+import { useJournal, useMood } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
-const mockEntries = [
-  {
-    id: 1,
-    date: "2024-01-15",
-    title: "A productive Monday",
-    content:
-      "Started the week with a clear mind. Completed all morning tasks and had a great focus session...",
-    mood: 4,
-    tags: ["productivity", "work", "positive"],
-    sentiment: "positive",
-  },
-  {
-    id: 2,
-    date: "2024-01-14",
-    title: "Sunday reflections",
-    content:
-      "Took time to review the past week. Some areas need improvement, especially time management...",
-    mood: 3,
-    tags: ["reflection", "weekend", "planning"],
-    sentiment: "neutral",
-  },
-  {
-    id: 3,
-    date: "2024-01-13",
-    title: "Challenging day",
-    content:
-      "Faced some unexpected obstacles today. Learning to adapt and stay resilient...",
-    mood: 2,
-    tags: ["challenges", "growth", "learning"],
-    sentiment: "mixed",
-  },
-];
+const moodEmojis = ["", "😔", "😐", "🙂", "😊", "🤩"];
 
 const Journal = () => {
-  const [isEditing, setIsEditing] = useState(false);
+  const { entries, addEntry, deleteEntry } = useJournal();
+  const { toast } = useToast();
+  const [isWriting, setIsWriting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [newEntry, setNewEntry] = useState({ title: "", content: "", mood: 3, tags: [] as string[] });
+  const [tagInput, setTagInput] = useState("");
+
+  const handleSave = () => {
+    if (!newEntry.title.trim() || !newEntry.content.trim()) { toast({ title: "Title and content required", variant: "destructive" }); return; }
+    addEntry({ ...newEntry, sentiment: newEntry.mood >= 4 ? 'positive' : newEntry.mood >= 3 ? 'neutral' : 'negative' });
+    toast({ title: "Entry saved! +15 XP" });
+    setNewEntry({ title: "", content: "", mood: 3, tags: [] });
+    setIsWriting(false);
+  };
+
+  const addTag = () => { if (tagInput && !newEntry.tags.includes(tagInput)) { setNewEntry({ ...newEntry, tags: [...newEntry.tags, tagInput.toLowerCase()] }); setTagInput(""); } };
+
+  const filteredEntries = entries.filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()) || e.content.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <BookOpen className="w-8 h-8 text-accent" />
-            Journal
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Reflect, process, and grow through writing
-          </p>
-        </div>
-        <Button onClick={() => setIsEditing(true)} className="glow">
-          <Plus className="w-4 h-4 mr-2" />
-          New Entry
-        </Button>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div><h1 className="text-2xl font-bold flex items-center gap-2"><BookOpen className="w-6 h-6 text-accent" />Journal</h1><p className="text-muted-foreground text-sm">{entries.length} entries</p></div>
+        <Button onClick={() => setIsWriting(true)} size="sm"><Plus className="w-4 h-4 mr-2" />New</Button>
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search entries..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon">
-            <Calendar className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Tag className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Filter className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      {isWriting && (
+        <Card className="glass animate-scale-in">
+          <CardContent className="pt-4 space-y-3">
+            <div className="flex gap-2 justify-center">{[1, 2, 3, 4, 5].map((m) => (<Button key={m} variant={newEntry.mood === m ? "default" : "outline"} size="sm" onClick={() => setNewEntry({ ...newEntry, mood: m })}>{moodEmojis[m]}</Button>))}</div>
+            <Input placeholder="Entry title" value={newEntry.title} onChange={(e) => setNewEntry({ ...newEntry, title: e.target.value })} />
+            <Textarea placeholder="Write your thoughts..." value={newEntry.content} onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })} className="min-h-[120px]" />
+            <div className="flex gap-2"><Input placeholder="Add tag..." value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())} /><Button variant="outline" onClick={addTag}>Add</Button></div>
+            {newEntry.tags.length > 0 && <div className="flex flex-wrap gap-1">{newEntry.tags.map((tag) => (<span key={tag} className="px-2 py-0.5 text-xs rounded-full bg-primary/20 text-primary">#{tag}</span>))}</div>}
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setIsWriting(false)}>Cancel</Button><Button className="flex-1" onClick={handleSave}>Save</Button></div>
+          </CardContent>
+        </Card>
+      )}
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="md:col-span-2 space-y-6">
-          {isEditing ? (
-            <JournalEditor onClose={() => setIsEditing(false)} />
-          ) : (
-            <Tabs defaultValue="entries" className="w-full">
-              <TabsList className="glass">
-                <TabsTrigger value="entries">All Entries</TabsTrigger>
-                <TabsTrigger value="prompts">Prompts</TabsTrigger>
-                <TabsTrigger value="insights">AI Insights</TabsTrigger>
-              </TabsList>
-              <TabsContent value="entries" className="space-y-4 mt-4">
-                {mockEntries.map((entry) => (
-                  <JournalEntryCard key={entry.id} entry={entry} />
-                ))}
-              </TabsContent>
-              <TabsContent value="prompts" className="mt-4">
-                <JournalPrompts />
-              </TabsContent>
-              <TabsContent value="insights" className="mt-4">
-                <Card className="glass">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      Journal Analysis
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Based on your recent entries, you show a pattern of increased
-                      positivity when you complete morning routines. Consider making
-                      them a consistent habit.
-                    </p>
-                    <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                      <p className="text-sm font-medium">Key Theme Detected</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        "Growth mindset" appears frequently in your positive entries
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
+      <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder="Search entries..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" /></div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <MoodTrend />
-
-          {/* Quick Stats */}
-          <Card className="glass">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Journal Stats</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Total Entries</span>
-                <span className="font-bold">127</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">This Week</span>
-                <span className="font-bold">5</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Streak</span>
-                <span className="font-bold text-arise-energy">12 days</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Avg. Mood</span>
-                <span className="font-bold text-arise-success">3.8/5</span>
+      <div className="space-y-3">
+        {filteredEntries.length === 0 ? <p className="text-center text-muted-foreground py-8">No entries yet. Start writing!</p> : filteredEntries.map((entry) => (
+          <Card key={entry.id} className="glass group">
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1"><span className="text-lg">{moodEmojis[entry.mood]}</span><h3 className="font-medium">{entry.title}</h3></div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{entry.content}</p>
+                  <div className="flex items-center gap-2 mt-2"><span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleDateString()}</span>{entry.tags.map((tag) => (<span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-secondary">#{tag}</span>))}</div>
+                </div>
+                <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 h-8 w-8" onClick={() => deleteEntry(entry.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>
-
-          {/* Popular Tags */}
-          <Card className="glass">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Popular Tags</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {["productivity", "work", "reflection", "growth", "goals", "habits"].map(
-                  (tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 text-xs rounded-full bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
-                    >
-                      #{tag}
-                    </span>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        ))}
       </div>
     </div>
   );

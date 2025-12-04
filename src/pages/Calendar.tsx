@@ -1,246 +1,95 @@
 import { useState } from "react";
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Clock,
-  Target,
-  Users,
-} from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCalendar, useTasks } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const mockEvents = [
-  {
-    id: 1,
-    title: "Morning Review",
-    time: "09:00",
-    duration: "30m",
-    type: "routine",
-    color: "bg-accent",
-  },
-  {
-    id: 2,
-    title: "Deep Work: Project Alpha",
-    time: "10:00",
-    duration: "2h",
-    type: "focus",
-    color: "bg-primary",
-  },
-  {
-    id: 3,
-    title: "Team Standup",
-    time: "12:00",
-    duration: "30m",
-    type: "meeting",
-    color: "bg-arise-warning",
-  },
-  {
-    id: 4,
-    title: "Lunch Break",
-    time: "12:30",
-    duration: "1h",
-    type: "break",
-    color: "bg-arise-success",
-  },
-  {
-    id: 5,
-    title: "Focus Session: Documentation",
-    time: "14:00",
-    duration: "1.5h",
-    type: "focus",
-    color: "bg-primary",
-  },
-  {
-    id: 6,
-    title: "Evening Review & Planning",
-    time: "17:00",
-    duration: "30m",
-    type: "routine",
-    color: "bg-accent",
-  },
-];
-
-const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 8 AM to 7 PM
-
 const Calendar = () => {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [view, setView] = useState<"day" | "week" | "month">("day");
+  const { events, addEvent, getEventsForDate } = useCalendar();
+  const { tasks } = useTasks();
+  const { toast } = useToast();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newEvent, setNewEvent] = useState({ title: "", type: "meeting" as const, time: "09:00", duration: "1h" });
+
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+  const today = new Date().toISOString().split('T')[0];
+
+  const handleAddEvent = () => {
+    if (!newEvent.title.trim()) { toast({ title: "Title required", variant: "destructive" }); return; }
+    addEvent({ ...newEvent, date: selectedDate, color: newEvent.type === 'focus' ? 'bg-primary' : newEvent.type === 'meeting' ? 'bg-arise-warning' : 'bg-accent' });
+    toast({ title: "Event added!" });
+    setNewEvent({ title: "", type: "meeting", time: "09:00", duration: "1h" });
+    setIsAdding(false);
+  };
+
+  const selectedEvents = getEventsForDate(selectedDate);
+  const selectedTasks = tasks.filter(t => t.dueDate === selectedDate);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <CalendarIcon className="w-8 h-8 text-arise-info" />
-            Calendar
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Plan your time, optimize your energy
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <div className="flex bg-secondary rounded-lg p-1">
-            {(["day", "week", "month"] as const).map((v) => (
-              <Button
-                key={v}
-                variant={view === v ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setView(v)}
-                className="capitalize"
-              >
-                {v}
-              </Button>
-            ))}
-          </div>
-          <Button className="glow">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Event
-          </Button>
-        </div>
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold flex items-center gap-2"><CalendarIcon className="w-6 h-6 text-arise-info" />Calendar</h1>
+        <Button size="sm" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2" />Add</Button>
       </div>
 
-      <div className="grid md:grid-cols-4 gap-6">
-        {/* Main Calendar View */}
-        <div className="md:col-span-3 space-y-6">
-          {/* Date Navigation */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="glass">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" size="icon" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}><ChevronLeft className="w-4 h-4" /></Button>
+              <span className="font-medium">{currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+              <Button variant="ghost" size="icon" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}><ChevronRight className="w-4 h-4" /></Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground mb-2">{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d}>{d}</div>)}</div>
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasItems = events.some(e => e.date === dateStr) || tasks.some(t => t.dueDate === dateStr);
+                return (
+                  <button key={day} onClick={() => setSelectedDate(dateStr)} className={cn("aspect-square rounded-md text-sm flex flex-col items-center justify-center relative", dateStr === selectedDate && "bg-primary text-primary-foreground", dateStr === today && dateStr !== selectedDate && "ring-1 ring-primary", dateStr !== selectedDate && "hover:bg-secondary/50")}>
+                    {day}{hasItems && <div className="w-1 h-1 rounded-full bg-arise-energy absolute bottom-1" />}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
           <Card className="glass">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <Button variant="ghost" size="icon">
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <h2 className="text-xl font-semibold">
-                  {date?.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </h2>
-                <Button variant="ghost" size="icon">
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
-
-              {/* Day View */}
-              {view === "day" && (
-                <div className="relative">
-                  {/* Time Grid */}
-                  <div className="space-y-0">
-                    {hours.map((hour) => (
-                      <div
-                        key={hour}
-                        className="flex border-t border-border h-20"
-                      >
-                        <div className="w-16 pr-2 text-right text-sm text-muted-foreground -mt-2">
-                          {hour > 12 ? hour - 12 : hour}:00{" "}
-                          {hour >= 12 ? "PM" : "AM"}
-                        </div>
-                        <div className="flex-1 relative">
-                          {/* Events */}
-                          {mockEvents
-                            .filter(
-                              (event) =>
-                                parseInt(event.time.split(":")[0]) === hour
-                            )
-                            .map((event) => (
-                              <div
-                                key={event.id}
-                                className={cn(
-                                  "absolute left-1 right-4 rounded-lg p-2 text-sm",
-                                  event.color,
-                                  "text-primary-foreground"
-                                )}
-                                style={{ top: "4px" }}
-                              >
-                                <p className="font-medium truncate">
-                                  {event.title}
-                                </p>
-                                <p className="text-xs opacity-80">
-                                  {event.time} • {event.duration}
-                                </p>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Week/Month View Placeholder */}
-              {view !== "day" && (
-                <div className="h-96 flex items-center justify-center text-muted-foreground">
-                  {view === "week" ? "Week" : "Month"} view coming soon
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Mini Calendar */}
-          <Card className="glass">
-            <CardContent className="pt-4">
-              <CalendarComponent
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Energy Forecast */}
-          <Card className="glass border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Energy Forecast</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-arise-success" />
-                <span className="text-sm">Peak: 10 AM - 12 PM</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-arise-warning" />
-                <span className="text-sm">Moderate: 2 PM - 4 PM</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-destructive" />
-                <span className="text-sm">Low: After 5 PM</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Based on your historical patterns
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Events */}
-          <Card className="glass">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Today's Events</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {mockEvents.slice(0, 4).map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors"
-                >
-                  <div className={cn("w-1 h-8 rounded-full", event.color)} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">{event.time}</p>
-                  </div>
-                </div>
-              ))}
+              {selectedEvents.length === 0 && selectedTasks.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No events</p> : (
+                <>{selectedEvents.map((e) => (<div key={e.id} className={cn("p-2 rounded-lg text-sm text-primary-foreground", e.color)}><p className="font-medium">{e.title}</p><p className="text-xs opacity-80">{e.time} • {e.duration}</p></div>))}
+                {selectedTasks.map((t) => (<div key={t.id} className="p-2 rounded-lg bg-secondary/50 text-sm"><p className={cn(t.completed && "line-through text-muted-foreground")}>{t.title}</p></div>))}</>
+              )}
             </CardContent>
           </Card>
+
+          {isAdding && (
+            <Card className="glass animate-scale-in">
+              <CardContent className="pt-4 space-y-3">
+                <Input placeholder="Event title" value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} />
+                <div className="grid grid-cols-3 gap-2">
+                  <Select value={newEvent.type} onValueChange={(v: any) => setNewEvent({ ...newEvent, type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="meeting">Meeting</SelectItem><SelectItem value="focus">Focus</SelectItem><SelectItem value="routine">Routine</SelectItem></SelectContent></Select>
+                  <Input type="time" value={newEvent.time} onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })} />
+                  <Select value={newEvent.duration} onValueChange={(v) => setNewEvent({ ...newEvent, duration: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="30m">30m</SelectItem><SelectItem value="1h">1h</SelectItem><SelectItem value="2h">2h</SelectItem></SelectContent></Select>
+                </div>
+                <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setIsAdding(false)}>Cancel</Button><Button className="flex-1" onClick={handleAddEvent}>Add</Button></div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
