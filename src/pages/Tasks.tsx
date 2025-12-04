@@ -1,272 +1,84 @@
 import { useState } from "react";
-import {
-  Plus,
-  Search,
-  Filter,
-  CheckSquare,
-  Clock,
-  Flag,
-  MoreHorizontal,
-  Calendar,
-  Brain,
-} from "lucide-react";
+import { Plus, Search, CheckSquare, Flag, Calendar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import TaskItem from "@/components/tasks/TaskItem";
-import TaskEditor from "@/components/tasks/TaskEditor";
-import BrainDump from "@/components/tasks/BrainDump";
-
-const mockTasks = [
-  {
-    id: 1,
-    title: "Complete project documentation",
-    completed: false,
-    priority: "high",
-    dueDate: "2024-01-16",
-    category: "Work",
-    subtasks: [
-      { id: 11, title: "Write introduction", completed: true },
-      { id: 12, title: "Add code examples", completed: false },
-    ],
-  },
-  {
-    id: 2,
-    title: "Review team feedback",
-    completed: false,
-    priority: "medium",
-    dueDate: "2024-01-17",
-    category: "Work",
-    subtasks: [],
-  },
-  {
-    id: 3,
-    title: "Morning meditation",
-    completed: true,
-    priority: "low",
-    dueDate: "2024-01-15",
-    category: "Wellness",
-    subtasks: [],
-  },
-  {
-    id: 4,
-    title: "Prepare weekly report",
-    completed: false,
-    priority: "high",
-    dueDate: "2024-01-15",
-    category: "Work",
-    subtasks: [],
-  },
-  {
-    id: 5,
-    title: "Read 30 pages",
-    completed: false,
-    priority: "low",
-    dueDate: "2024-01-15",
-    category: "Personal",
-    subtasks: [],
-  },
-];
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useTasks } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const Tasks = () => {
-  const [isEditing, setIsEditing] = useState(false);
+  const { tasks, addTask, toggleTask, deleteTask, pendingTasks, completedTasks } = useTasks();
+  const { toast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [tasks, setTasks] = useState(mockTasks);
+  const [newTask, setNewTask] = useState({ title: "", description: "", priority: "medium" as const, category: "Work", dueDate: new Date().toISOString().split('T')[0] });
 
-  const completedCount = tasks.filter((t) => t.completed).length;
-  const totalCount = tasks.length;
-  const completionRate = Math.round((completedCount / totalCount) * 100);
+  const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
-  const toggleTask = (id: number) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
+  const handleAddTask = () => {
+    if (!newTask.title.trim()) { toast({ title: "Title required", variant: "destructive" }); return; }
+    addTask({ ...newTask, completed: false, subtasks: [] });
+    toast({ title: "Task added! +10 XP" });
+    setNewTask({ title: "", description: "", priority: "medium", category: "Work", dueDate: new Date().toISOString().split('T')[0] });
+    setIsAdding(false);
   };
 
+  const filteredTasks = tasks.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const TaskItem = ({ task }: { task: typeof tasks[0] }) => (
+    <div className={cn("flex items-center gap-3 p-3 rounded-lg bg-secondary/30 group", task.completed && "opacity-50")}>
+      <Checkbox checked={task.completed} onCheckedChange={() => toggleTask(task.id)} />
+      <div className="flex-1 min-w-0">
+        <p className={cn("font-medium text-sm", task.completed && "line-through")}>{task.title}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className={cn("text-xs px-2 py-0.5 rounded-full", task.priority === 'high' ? "bg-destructive/20 text-destructive" : task.priority === 'medium' ? "bg-arise-warning/20 text-arise-warning" : "bg-arise-success/20 text-arise-success")}>{task.priority}</span>
+          <span className="text-xs text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</span>
+        </div>
+      </div>
+      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 h-8 w-8" onClick={() => deleteTask(task.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+    </div>
+  );
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <CheckSquare className="w-8 h-8 text-primary" />
-            Tasks
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Organize, prioritize, and conquer your day
-          </p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><CheckSquare className="w-6 h-6 text-primary" />Tasks</h1>
+          <p className="text-muted-foreground text-sm">{pendingTasks.length} pending</p>
         </div>
-        <Button onClick={() => setIsEditing(true)} className="glow">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Task
-        </Button>
+        <Button onClick={() => setIsAdding(true)} size="sm"><Plus className="w-4 h-4 mr-2" />Add</Button>
       </div>
 
-      {/* Progress Overview */}
-      <Card className="glass">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Today's Progress</span>
-            <span className="text-sm text-muted-foreground">
-              {completedCount} of {totalCount} tasks
-            </span>
-          </div>
-          <Progress value={completionRate} className="h-2" />
-          <div className="flex gap-4 mt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-destructive" />
-              <span>2 High Priority</span>
+      <Card className="glass"><CardContent className="pt-4"><div className="flex items-center justify-between mb-2"><span className="text-sm">Progress</span><span className="text-sm font-medium">{completionRate}%</span></div><Progress value={completionRate} className="h-2" /></CardContent></Card>
+
+      {isAdding && (
+        <Card className="glass animate-scale-in">
+          <CardContent className="pt-4 space-y-3">
+            <Input placeholder="Task title" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
+            <div className="grid grid-cols-3 gap-2">
+              <Select value={newTask.priority} onValueChange={(v: any) => setNewTask({ ...newTask, priority: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select>
+              <Select value={newTask.category} onValueChange={(v) => setNewTask({ ...newTask, category: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Work">Work</SelectItem><SelectItem value="Personal">Personal</SelectItem><SelectItem value="Health">Health</SelectItem></SelectContent></Select>
+              <Input type="date" value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-arise-warning" />
-              <span>1 Medium</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-arise-success" />
-              <span>2 Low</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={() => setIsAdding(false)}>Cancel</Button><Button className="flex-1" onClick={handleAddTask}>Add</Button></div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Search & Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon">
-            <Filter className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Calendar className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" /></div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="md:col-span-2 space-y-6">
-          {isEditing ? (
-            <TaskEditor onClose={() => setIsEditing(false)} />
-          ) : (
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="glass">
-                <TabsTrigger value="all">All Tasks</TabsTrigger>
-                <TabsTrigger value="today">Today</TabsTrigger>
-                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="all" className="space-y-3 mt-4">
-                {tasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={() => toggleTask(task.id)}
-                  />
-                ))}
-              </TabsContent>
-
-              <TabsContent value="today" className="space-y-3 mt-4">
-                {tasks
-                  .filter((t) => t.dueDate === "2024-01-15")
-                  .map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      onToggle={() => toggleTask(task.id)}
-                    />
-                  ))}
-              </TabsContent>
-
-              <TabsContent value="upcoming" className="space-y-3 mt-4">
-                {tasks
-                  .filter((t) => !t.completed && t.dueDate !== "2024-01-15")
-                  .map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      onToggle={() => toggleTask(task.id)}
-                    />
-                  ))}
-              </TabsContent>
-
-              <TabsContent value="completed" className="space-y-3 mt-4">
-                {tasks
-                  .filter((t) => t.completed)
-                  .map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      onToggle={() => toggleTask(task.id)}
-                    />
-                  ))}
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* AI Suggestions */}
-          <Card className="glass border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                AI Suggestions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-3 rounded-lg bg-primary/10 text-sm">
-                <p className="font-medium">Focus on high-priority first</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Complete "Project documentation" before the meeting
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-arise-warning/10 text-sm">
-                <p className="font-medium">Task at risk</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  "Weekly report" is due today but not started
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Brain Dump */}
-          <BrainDump />
-
-          {/* Categories */}
-          <Card className="glass">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Categories</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {["Work", "Personal", "Wellness", "Learning"].map((category) => (
-                <div
-                  key={category}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
-                >
-                  <span className="text-sm">{category}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {tasks.filter((t) => t.category === category).length}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Tabs defaultValue="all">
+        <TabsList className="glass"><TabsTrigger value="all">All ({tasks.length})</TabsTrigger><TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger><TabsTrigger value="done">Done ({completedTasks.length})</TabsTrigger></TabsList>
+        <TabsContent value="all" className="space-y-2 mt-4">{filteredTasks.length === 0 ? <p className="text-center text-muted-foreground py-8">No tasks yet</p> : filteredTasks.map((task) => <TaskItem key={task.id} task={task} />)}</TabsContent>
+        <TabsContent value="pending" className="space-y-2 mt-4">{pendingTasks.map((task) => <TaskItem key={task.id} task={task} />)}</TabsContent>
+        <TabsContent value="done" className="space-y-2 mt-4">{completedTasks.map((task) => <TaskItem key={task.id} task={task} />)}</TabsContent>
+      </Tabs>
     </div>
   );
 };

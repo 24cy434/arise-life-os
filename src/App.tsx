@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AppProvider } from "@/lib/store";
 import Layout from "@/components/Layout";
 import Home from "@/pages/Home";
 import Journal from "@/pages/Journal";
@@ -19,24 +20,26 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="dark" storageKey="arise-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="journal" element={<Journal />} />
-              <Route path="tasks" element={<Tasks />} />
-              <Route path="focus" element={<Focus />} />
-              <Route path="calendar" element={<Calendar />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="profile" element={<Profile />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AppProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="journal" element={<Journal />} />
+                <Route path="tasks" element={<Tasks />} />
+                <Route path="focus" element={<Focus />} />
+                <Route path="calendar" element={<Calendar />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AppProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

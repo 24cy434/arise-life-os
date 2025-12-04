@@ -1,300 +1,45 @@
-import { useState } from "react";
-import {
-  User,
-  Settings,
-  Bell,
-  Moon,
-  Sun,
-  Shield,
-  Download,
-  LogOut,
-  Palette,
-  Target,
-  Brain,
-} from "lucide-react";
+import { User, Moon, Sun, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useTheme } from "@/components/ThemeProvider";
-import { Slider } from "@/components/ui/slider";
+import { useStats, useApp } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
 
 const Profile = () => {
   const { theme, setTheme } = useTheme();
-  const [notifications, setNotifications] = useState({
-    tasks: true,
-    focus: true,
-    journal: false,
-    insights: true,
-  });
+  const stats = useStats();
+  const { state } = useApp();
+  const { toast } = useToast();
+
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'arise-data.json'; a.click();
+    toast({ title: "Data exported!" });
+  };
+
+  const handleClear = () => { if (confirm("Delete all data?")) { localStorage.removeItem('arise-data'); window.location.reload(); } };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <User className="w-8 h-8 text-primary" />
-            Profile
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your account and preferences
-          </p>
+    <div className="space-y-4 animate-fade-in max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold flex items-center gap-2"><User className="w-6 h-6 text-primary" />Profile</h1>
+
+      <Card className="glass"><CardContent className="pt-6">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">{state.userName.charAt(0)}</div>
+          <div><h2 className="text-xl font-bold">{state.userName}</h2><div className="flex gap-2 mt-1"><span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs">Lvl {stats.level}</span><span className="px-2 py-0.5 rounded-full bg-arise-energy/20 text-arise-energy text-xs">{stats.xp} XP</span></div></div>
         </div>
-      </div>
+        <div className="mt-4"><div className="flex justify-between text-sm mb-1"><span>Progress</span><span>{stats.xp % 100}/100</span></div><Progress value={stats.xp % 100} className="h-2" /></div>
+      </CardContent></Card>
 
-      {/* Profile Card */}
-      <Card className="glass">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="w-24 h-24 rounded-full gradient-primary flex items-center justify-center text-3xl font-bold text-primary-foreground">
-              JD
-            </div>
-            <div className="text-center md:text-left">
-              <h2 className="text-2xl font-bold">John Doe</h2>
-              <p className="text-muted-foreground">john.doe@example.com</p>
-              <div className="flex items-center gap-2 mt-2 justify-center md:justify-start">
-                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                  Level 12
-                </span>
-                <span className="px-3 py-1 rounded-full bg-arise-energy/10 text-arise-energy text-sm font-medium">
-                  1,250 XP
-                </span>
-              </div>
-            </div>
-            <Button variant="outline" className="md:ml-auto">
-              Edit Profile
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <Card className="glass"><CardHeader className="pb-2"><CardTitle className="text-base">Stats</CardTitle></CardHeader><CardContent><div className="grid grid-cols-2 gap-4"><div><p className="text-2xl font-bold">{stats.totalTasks}</p><p className="text-xs text-muted-foreground">Tasks</p></div><div><p className="text-2xl font-bold">{stats.completedTasks}</p><p className="text-xs text-muted-foreground">Completed</p></div><div><p className="text-2xl font-bold">{Math.floor(stats.totalFocusMinutes / 60)}h</p><p className="text-xs text-muted-foreground">Focus</p></div><div><p className="text-2xl font-bold">{stats.totalJournalEntries}</p><p className="text-xs text-muted-foreground">Journal</p></div></div></CardContent></Card>
 
-      {/* Settings Tabs */}
-      <Tabs defaultValue="preferences" className="w-full">
-        <TabsList className="glass">
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="ai">AI Settings</TabsTrigger>
-          <TabsTrigger value="data">Data & Privacy</TabsTrigger>
-        </TabsList>
+      <Card className="glass"><CardHeader className="pb-2"><CardTitle className="text-base">Theme</CardTitle></CardHeader><CardContent><div className="flex gap-2"><Button variant={theme === "light" ? "default" : "outline"} size="sm" onClick={() => setTheme("light")}><Sun className="w-4 h-4 mr-1" />Light</Button><Button variant={theme === "dark" ? "default" : "outline"} size="sm" onClick={() => setTheme("dark")}><Moon className="w-4 h-4 mr-1" />Dark</Button></div></CardContent></Card>
 
-        <TabsContent value="preferences" className="mt-6 space-y-6">
-          {/* Appearance */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5" />
-                Appearance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Theme</p>
-                  <p className="text-sm text-muted-foreground">
-                    Choose your preferred color scheme
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant={theme === "light" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTheme("light")}
-                  >
-                    <Sun className="w-4 h-4 mr-1" />
-                    Light
-                  </Button>
-                  <Button
-                    variant={theme === "dark" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTheme("dark")}
-                  >
-                    <Moon className="w-4 h-4 mr-1" />
-                    Dark
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Focus Settings */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Focus Defaults
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium">Default Session Duration</p>
-                  <span className="text-sm text-muted-foreground">25 min</span>
-                </div>
-                <Slider defaultValue={[25]} max={60} min={5} step={5} />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium">Break Duration</p>
-                  <span className="text-sm text-muted-foreground">5 min</span>
-                </div>
-                <Slider defaultValue={[5]} max={30} min={1} step={1} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Auto-start breaks</p>
-                  <p className="text-sm text-muted-foreground">
-                    Automatically start break after focus session
-                  </p>
-                </div>
-                <Switch />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="mt-6">
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                Notification Preferences
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {Object.entries({
-                tasks: "Task reminders",
-                focus: "Focus session alerts",
-                journal: "Journal prompts",
-                insights: "AI insights",
-              }).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{label}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Receive notifications for {label.toLowerCase()}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={notifications[key as keyof typeof notifications]}
-                    onCheckedChange={(checked) =>
-                      setNotifications({ ...notifications, [key]: checked })
-                    }
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ai" className="mt-6">
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5" />
-                AI Personalization
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">AI Suggestions</p>
-                  <p className="text-sm text-muted-foreground">
-                    Enable AI-powered productivity suggestions
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Mood Analysis</p>
-                  <p className="text-sm text-muted-foreground">
-                    Analyze journal entries for mood patterns
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Smart Scheduling</p>
-                  <p className="text-sm text-muted-foreground">
-                    Let AI suggest optimal task scheduling
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div>
-                <p className="font-medium mb-2">AI Personality</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button variant="outline" size="sm">
-                    Supportive
-                  </Button>
-                  <Button variant="default" size="sm">
-                    Balanced
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Direct
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="data" className="mt-6 space-y-6">
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Privacy & Data
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Data Collection</p>
-                  <p className="text-sm text-muted-foreground">
-                    Allow anonymous usage data for improvements
-                  </p>
-                </div>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Export Data</p>
-                  <p className="text-sm text-muted-foreground">
-                    Download all your data in JSON format
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass border-destructive/20">
-            <CardHeader>
-              <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Delete Account</p>
-                  <p className="text-sm text-muted-foreground">
-                    Permanently delete your account and all data
-                  </p>
-                </div>
-                <Button variant="destructive" size="sm">
-                  Delete Account
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Card className="glass"><CardHeader className="pb-2"><CardTitle className="text-base">Data</CardTitle></CardHeader><CardContent className="space-y-3">
+        <div className="flex items-center justify-between"><span className="text-sm">Export</span><Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" />Export</Button></div>
+        <div className="flex items-center justify-between"><span className="text-sm text-destructive">Clear All</span><Button variant="destructive" size="sm" onClick={handleClear}><Trash2 className="w-4 h-4 mr-2" />Clear</Button></div>
+      </CardContent></Card>
     </div>
   );
 };
