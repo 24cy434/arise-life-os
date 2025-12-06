@@ -13,7 +13,9 @@ import Focus from "@/pages/Focus";
 import Calendar from "@/pages/Calendar";
 import Analytics from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
+import Habits from "@/pages/Habits";
 import NotFound from "@/pages/NotFound";
+import AIChat from "@/components/AIChat";
 
 const queryClient = new QueryClient();
 
@@ -34,9 +36,11 @@ const App = () => (
                 <Route path="calendar" element={<Calendar />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="habits" element={<Habits />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <AIChat />
           </BrowserRouter>
         </TooltipProvider>
       </AppProvider>
