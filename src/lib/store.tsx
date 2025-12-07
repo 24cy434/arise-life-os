@@ -51,14 +51,59 @@ const defaultCategories: Category[] = [
   { id: '4', name: 'Learning', color: 'bg-arise-warning' },
 ];
 
+const today = new Date().toISOString().split('T')[0];
+const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+const twoDaysAgo = new Date(Date.now() - 172800000).toISOString().split('T')[0];
+
+const dummyTasks: Task[] = [
+  { id: '1', title: 'Complete project documentation', description: 'Write comprehensive docs for the new feature', completed: false, priority: 'high', dueDate: today, category: 'Work', subtasks: [], createdAt: twoDaysAgo, estimatedMinutes: 60 },
+  { id: '2', title: 'Review team feedback', description: 'Go through code review comments', completed: false, priority: 'medium', dueDate: today, category: 'Work', subtasks: [], createdAt: yesterday, estimatedMinutes: 30 },
+  { id: '3', title: 'Morning meditation', completed: true, priority: 'low', dueDate: today, category: 'Health', subtasks: [], createdAt: today, completedAt: today, estimatedMinutes: 15 },
+  { id: '4', title: 'Read 20 pages', completed: false, priority: 'low', dueDate: today, category: 'Learning', subtasks: [], createdAt: today, estimatedMinutes: 30 },
+  { id: '5', title: 'Weekly planning session', completed: false, priority: 'high', dueDate: today, category: 'Personal', subtasks: [], createdAt: yesterday, estimatedMinutes: 45 },
+];
+
+const dummyHabits: Habit[] = [
+  { id: '1', title: 'Morning meditation', frequency: 'daily', category: 'Health', streak: 7, bestStreak: 12, completedDates: [today, yesterday, twoDaysAgo], createdAt: twoDaysAgo, color: 'bg-accent' },
+  { id: '2', title: 'Read for 30 minutes', frequency: 'daily', category: 'Learning', streak: 5, bestStreak: 8, completedDates: [yesterday, twoDaysAgo], createdAt: twoDaysAgo, color: 'bg-primary' },
+  { id: '3', title: 'Exercise', frequency: 'daily', category: 'Health', streak: 3, bestStreak: 14, completedDates: [twoDaysAgo], createdAt: twoDaysAgo, color: 'bg-arise-energy' },
+  { id: '4', title: 'Journal before bed', frequency: 'daily', category: 'Personal', streak: 10, bestStreak: 10, completedDates: [today, yesterday], createdAt: twoDaysAgo, color: 'bg-arise-warning' },
+];
+
+const dummyJournalEntries: JournalEntry[] = [
+  { id: '1', title: 'Productive Monday', content: 'Started the week strong. Completed all morning tasks and had a great focus session. Feeling motivated to tackle the project.', mood: 4, tags: ['productivity', 'work', 'positive'], createdAt: today, sentiment: 'positive' },
+  { id: '2', title: 'Weekend reflections', content: 'Took time to review the past week. Some areas need improvement, especially time management. Planning to use more focused work blocks.', mood: 3, tags: ['reflection', 'planning'], createdAt: yesterday, sentiment: 'neutral' },
+];
+
+const dummyFocusSessions: FocusSession[] = [
+  { id: '1', mode: 'pomodoro', duration: 1500, completedDuration: 1500, completed: true, startedAt: today + 'T10:00:00', completedAt: today + 'T10:25:00', taskId: '1', taskTitle: 'Complete project documentation' },
+  { id: '2', mode: 'deep', duration: 3000, completedDuration: 2700, completed: true, startedAt: yesterday + 'T14:00:00', completedAt: yesterday + 'T14:45:00' },
+];
+
+const dummyMoodLogs: MoodLog[] = [
+  { id: '1', mood: 4, energy: 4, date: today, note: 'Feeling energized' },
+  { id: '2', mood: 3, energy: 3, date: yesterday },
+  { id: '3', mood: 4, energy: 4, date: twoDaysAgo },
+  { id: '4', mood: 5, energy: 5, date: new Date(Date.now() - 259200000).toISOString().split('T')[0] },
+  { id: '5', mood: 3, energy: 2, date: new Date(Date.now() - 345600000).toISOString().split('T')[0] },
+  { id: '6', mood: 4, energy: 4, date: new Date(Date.now() - 432000000).toISOString().split('T')[0] },
+  { id: '7', mood: 4, energy: 3, date: new Date(Date.now() - 518400000).toISOString().split('T')[0] },
+];
+
+const dummyEvents: CalendarEvent[] = [
+  { id: '1', title: 'Morning standup', type: 'meeting', date: today, time: '09:00', duration: '30m', color: 'bg-arise-warning' },
+  { id: '2', title: 'Deep work block', type: 'focus', date: today, time: '10:00', duration: '2h', color: 'bg-primary' },
+  { id: '3', title: 'Lunch break', type: 'break', date: today, time: '12:00', duration: '1h', color: 'bg-arise-success' },
+];
+
 const initialState: AppState = {
-  tasks: [],
-  journalEntries: [],
-  focusSessions: [],
-  calendarEvents: [],
-  moodLogs: [],
-  habits: [],
-  userStats: { totalTasks: 0, completedTasks: 0, totalFocusMinutes: 0, totalJournalEntries: 0, currentTaskStreak: 0, currentFocusStreak: 0, currentJournalStreak: 0, level: 1, xp: 0 },
+  tasks: dummyTasks,
+  journalEntries: dummyJournalEntries,
+  focusSessions: dummyFocusSessions,
+  calendarEvents: dummyEvents,
+  moodLogs: dummyMoodLogs,
+  habits: dummyHabits,
+  userStats: { totalTasks: 5, completedTasks: 1, totalFocusMinutes: 70, totalJournalEntries: 2, currentTaskStreak: 3, currentFocusStreak: 2, currentJournalStreak: 2, level: 3, xp: 245 },
   achievements: [],
   userName: 'Achiever',
   categories: defaultCategories,

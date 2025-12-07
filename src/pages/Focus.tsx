@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Target, Play, Pause, RotateCcw, Brain, Zap, Moon, Coffee, Volume2, VolumeX, ListTodo, BarChart3, Clock, Flame, Star, CheckCircle } from "lucide-react";
+import { Target, Play, Pause, RotateCcw, Brain, Zap, Moon, Coffee, Volume2, VolumeX, ListTodo, Clock, Flame, Star, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -15,16 +15,16 @@ const modes = [
   { id: "pomodoro", name: "Pomodoro", duration: 25, icon: Target, color: "text-arise-energy", description: "Classic 25-min focus blocks" },
   { id: "sprint", name: "Sprint", duration: 15, icon: Zap, color: "text-arise-warning", description: "Quick burst of productivity" },
   { id: "calm", name: "Calm", duration: 45, icon: Moon, color: "text-accent", description: "Gentle, sustained attention" },
-  { id: "coffee", name: "Coffee Break", duration: 5, icon: Coffee, color: "text-arise-success", description: "Short refreshing break" },
+  { id: "coffee", name: "Break", duration: 5, icon: Coffee, color: "text-arise-success", description: "Short refreshing break" },
 ];
 
 const Focus = () => {
-  const { sessions, todaySessions, startSession, updateSession, completeSession } = useFocus();
+  const { sessions, todaySessions, startSession, completeSession } = useFocus();
   const { pendingTasks, tasks } = useTasks();
   const stats = useStats();
   const { toast } = useToast();
   const [selectedMode, setSelectedMode] = useState("pomodoro");
-  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("none");
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [totalTime, setTotalTime] = useState(25 * 60);
@@ -34,7 +34,7 @@ const Focus = () => {
   const [volume, setVolume] = useState([50]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentMode = modes.find((m) => m.id === selectedMode)!;
-  const selectedTask = tasks.find(t => t.id === selectedTaskId);
+  const selectedTask = selectedTaskId !== "none" ? tasks.find(t => t.id === selectedTaskId) : null;
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -61,7 +61,7 @@ const Focus = () => {
         duration: totalTime, 
         completedDuration: 0, 
         completed: false,
-        taskId: selectedTaskId || undefined,
+        taskId: selectedTaskId !== "none" ? selectedTaskId : undefined,
         taskTitle: selectedTask?.title,
         interruptions: 0,
       });
@@ -105,7 +105,6 @@ const Focus = () => {
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
   const progress = ((totalTime - timeLeft) / totalTime) * 100;
 
-  // Session statistics
   const totalFocusToday = todaySessions.reduce((acc, s) => acc + Math.floor(s.completedDuration / 60), 0);
   const avgSessionLength = todaySessions.length > 0 ? Math.round(totalFocusToday / todaySessions.length) : 0;
   const completedSessions = todaySessions.filter(s => s.completed).length;
@@ -150,7 +149,7 @@ const Focus = () => {
               <Select value={selectedTaskId} onValueChange={setSelectedTaskId} disabled={isRunning}>
                 <SelectTrigger><SelectValue placeholder="Select a task to focus on" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No specific task</SelectItem>
+                  <SelectItem value="none">No specific task</SelectItem>
                   {pendingTasks.map((task) => (
                     <SelectItem key={task.id} value={task.id}>
                       <span className="flex items-center gap-2">
