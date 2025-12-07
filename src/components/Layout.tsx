@@ -1,11 +1,14 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import AIChat from "./AIChat";
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -20,14 +23,25 @@ const Layout = () => {
       </Button>
 
       {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        onClose={() => setSidebarOpen(false)} 
+        isExpanded={isExpanded}
+        setIsExpanded={setIsExpanded}
+      />
 
       {/* Main content */}
-      <main className="flex-1 md:ml-64 min-h-screen">
-        <div className="p-4 md:p-8 pt-16 md:pt-8">
+      <main className={cn(
+        "flex-1 min-h-screen transition-all duration-300",
+        isExpanded ? "md:ml-56" : "md:ml-16"
+      )}>
+        <div className="p-4 md:p-6 pt-16 md:pt-6">
           <Outlet />
         </div>
       </main>
+
+      {/* AI Chat */}
+      <AIChat />
     </div>
   );
 };

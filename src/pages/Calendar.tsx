@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useCalendar, useTasks, useHabits } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -18,7 +17,7 @@ const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAdding, setIsAdding] = useState(false);
   const [view, setView] = useState<'month' | 'week'>('month');
-  const [newEvent, setNewEvent] = useState({ title: "", type: "meeting" as const, time: "09:00", duration: "1h", recurring: "" as "" | "daily" | "weekly" | "monthly" });
+  const [newEvent, setNewEvent] = useState({ title: "", type: "meeting" as const, time: "09:00", duration: "1h", recurring: "none" });
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -30,7 +29,6 @@ const Calendar = () => {
       case 'meeting': return 'bg-arise-warning';
       case 'routine': return 'bg-accent';
       case 'break': return 'bg-arise-success';
-      case 'habit': return 'bg-arise-energy';
       default: return 'bg-secondary';
     }
   };
@@ -41,10 +39,10 @@ const Calendar = () => {
       ...newEvent, 
       date: selectedDate, 
       color: getColorForType(newEvent.type),
-      recurring: newEvent.recurring || undefined,
+      recurring: newEvent.recurring !== "none" ? newEvent.recurring as 'daily' | 'weekly' | 'monthly' : undefined,
     });
     toast({ title: "Event added!" });
-    setNewEvent({ title: "", type: "meeting", time: "09:00", duration: "1h", recurring: "" });
+    setNewEvent({ title: "", type: "meeting", time: "09:00", duration: "1h", recurring: "none" });
     setIsAdding(false);
   };
 
@@ -56,7 +54,6 @@ const Calendar = () => {
   const selectedTasks = tasks.filter(t => t.dueDate === selectedDate);
   const selectedDayHabits = habits.filter(h => h.frequency === 'daily' || (h.frequency === 'weekly' && h.targetDays?.includes(new Date(selectedDate).getDay())));
 
-  // Week view helpers
   const getWeekDates = () => {
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
@@ -68,7 +65,7 @@ const Calendar = () => {
   };
 
   const weekDates = getWeekDates();
-  const hours = Array.from({ length: 14 }, (_, i) => i + 7); // 7 AM to 8 PM
+  const hours = Array.from({ length: 14 }, (_, i) => i + 7);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -84,7 +81,6 @@ const Calendar = () => {
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        {/* Calendar View */}
         <div className="md:col-span-2">
           <Card className="glass">
             <CardHeader className="pb-2">
@@ -114,6 +110,7 @@ const Calendar = () => {
                           {hasItems && (
                             <div className="flex gap-0.5 mt-0.5">
                               {dayEvents.slice(0, 3).map((e, idx) => <div key={idx} className={cn("w-1.5 h-1.5 rounded-full", e.color)} />)}
+                              {dayTasks.slice(0, 2).map((_, idx) => <div key={`t-${idx}`} className="w-1.5 h-1.5 rounded-full bg-primary/50" />)}
                             </div>
                           )}
                         </button>
@@ -126,14 +123,14 @@ const Calendar = () => {
                   <div className="grid grid-cols-8 gap-1 min-w-[600px]">
                     <div />
                     {weekDates.map((date) => (
-                      <div key={date} className={cn("text-center p-2 rounded-lg", date === today && "bg-primary/10", date === selectedDate && "ring-1 ring-primary")}>
+                      <div key={date} className={cn("text-center p-2 rounded-lg cursor-pointer", date === today && "bg-primary/10", date === selectedDate && "ring-1 ring-primary")} onClick={() => setSelectedDate(date)}>
                         <p className="text-xs text-muted-foreground">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(date).getDay()]}</p>
                         <p className="font-medium">{new Date(date).getDate()}</p>
                       </div>
                     ))}
                     {hours.map((hour) => (
-                      <>
-                        <div key={`h-${hour}`} className="text-xs text-muted-foreground text-right pr-2 py-2">{hour}:00</div>
+                      <div key={`row-${hour}`} className="contents">
+                        <div className="text-xs text-muted-foreground text-right pr-2 py-2">{hour}:00</div>
                         {weekDates.map((date) => {
                           const hourEvents = events.filter(e => e.date === date && parseInt(e.time.split(':')[0]) === hour);
                           return (
@@ -144,7 +141,7 @@ const Calendar = () => {
                             </div>
                           );
                         })}
-                      </>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -153,9 +150,7 @@ const Calendar = () => {
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
-          {/* Selected Date Events */}
           <Card className="glass">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</CardTitle>
@@ -180,7 +175,7 @@ const Calendar = () => {
                     </div>
                   ))}
                   {selectedTasks.map((t) => (
-                    <div key={t.id} className="p-2 rounded-lg bg-secondary/50 text-sm">
+                    <div key={t.id} className="p-2 rounded-lg bg-primary/20 text-sm border-l-2 border-primary">
                       <p className={cn(t.completed && "line-through text-muted-foreground")}>{t.title}</p>
                       <p className="text-xs text-muted-foreground">Task • {t.priority} priority</p>
                     </div>
@@ -196,7 +191,6 @@ const Calendar = () => {
             </CardContent>
           </Card>
 
-          {/* Add Event Form */}
           {isAdding && (
             <Card className="glass animate-scale-in">
               <CardHeader className="pb-2"><CardTitle className="text-base">New Event</CardTitle></CardHeader>
@@ -225,10 +219,10 @@ const Calendar = () => {
                       <SelectItem value="3h">3h</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={newEvent.recurring} onValueChange={(v: any) => setNewEvent({ ...newEvent, recurring: v })}>
+                  <Select value={newEvent.recurring} onValueChange={(v) => setNewEvent({ ...newEvent, recurring: v })}>
                     <SelectTrigger><SelectValue placeholder="Repeat" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No repeat</SelectItem>
+                      <SelectItem value="none">No repeat</SelectItem>
                       <SelectItem value="daily">Daily</SelectItem>
                       <SelectItem value="weekly">Weekly</SelectItem>
                       <SelectItem value="monthly">Monthly</SelectItem>
@@ -243,7 +237,6 @@ const Calendar = () => {
             </Card>
           )}
 
-          {/* Quick Stats */}
           <Card className="glass">
             <CardHeader className="pb-2"><CardTitle className="text-base">This Week</CardTitle></CardHeader>
             <CardContent>
