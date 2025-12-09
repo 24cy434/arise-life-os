@@ -14,8 +14,8 @@ import Calendar from "@/pages/Calendar";
 import Analytics from "@/pages/Analytics";
 import Profile from "@/pages/Profile";
 import Habits from "@/pages/Habits";
+import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
-import AIChat from "@/components/AIChat";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +28,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="journal" element={<Journal />} />
@@ -40,7 +41,6 @@ const App = () => (
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <AIChat />
           </BrowserRouter>
         </TooltipProvider>
       </AppProvider>

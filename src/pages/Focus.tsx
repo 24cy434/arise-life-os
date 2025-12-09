@@ -1,21 +1,24 @@
 import { useState, useEffect, useRef } from "react";
-import { Target, Play, Pause, RotateCcw, Brain, Zap, Moon, Coffee, Volume2, VolumeX, ListTodo, Clock, Flame, Star, CheckCircle } from "lucide-react";
+import { Target, Play, Pause, RotateCcw, Brain, Zap, Moon, Coffee, Volume2, VolumeX, ListTodo, Clock, Flame, Star, CheckCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useFocus, useTasks, useStats } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const modes = [
+const defaultModes = [
   { id: "deep", name: "Deep Work", duration: 50, icon: Brain, color: "text-primary", description: "Maximum focus for complex tasks" },
   { id: "pomodoro", name: "Pomodoro", duration: 25, icon: Target, color: "text-arise-energy", description: "Classic 25-min focus blocks" },
   { id: "sprint", name: "Sprint", duration: 15, icon: Zap, color: "text-arise-warning", description: "Quick burst of productivity" },
   { id: "calm", name: "Calm", duration: 45, icon: Moon, color: "text-accent", description: "Gentle, sustained attention" },
-  { id: "coffee", name: "Break", duration: 5, icon: Coffee, color: "text-arise-success", description: "Short refreshing break" },
+  { id: "break", name: "Break", duration: 5, icon: Coffee, color: "text-arise-success", description: "Short refreshing break" },
 ];
 
 const Focus = () => {
@@ -23,6 +26,14 @@ const Focus = () => {
   const { pendingTasks, tasks } = useTasks();
   const stats = useStats();
   const { toast } = useToast();
+  
+  // Custom timer settings
+  const [modes, setModes] = useState(defaultModes);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customDuration, setCustomDuration] = useState(25);
+  const [editingMode, setEditingMode] = useState<string | null>(null);
+  const [customModeName, setCustomModeName] = useState("");
+  
   const [selectedMode, setSelectedMode] = useState("pomodoro");
   const [selectedTaskId, setSelectedTaskId] = useState<string>("none");
   const [isRunning, setIsRunning] = useState(false);
@@ -32,8 +43,9 @@ const Focus = () => {
   const [interruptions, setInterruptions] = useState(0);
   const [ambientSound, setAmbientSound] = useState<string | null>(null);
   const [volume, setVolume] = useState([50]);
+  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const currentMode = modes.find((m) => m.id === selectedMode)!;
+  const currentMode = modes.find((m) => m.id === selectedMode) || modes[0];
   const selectedTask = selectedTaskId !== "none" ? tasks.find(t => t.id === selectedTaskId) : null;
 
   useEffect(() => {
@@ -42,15 +54,38 @@ const Focus = () => {
     } else if (timeLeft === 0 && isRunning) {
       handleComplete();
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => { 
+      if (intervalRef.current) clearInterval(intervalRef.current); 
+    };
   }, [isRunning, timeLeft]);
 
   const selectMode = (modeId: string) => {
     if (isRunning) return;
-    const mode = modes.find((m) => m.id === modeId)!;
-    setSelectedMode(modeId);
-    setTotalTime(mode.duration * 60);
-    setTimeLeft(mode.duration * 60);
+    const mode = modes.find((m) => m.id === modeId);
+    if (mode) {
+      setSelectedMode(modeId);
+      setTotalTime(mode.duration * 60);
+      setTimeLeft(mode.duration * 60);
+    }
+  };
+
+  const handleUpdateModeDuration = (modeId: string, newDuration: number) => {
+    setModes(prev => prev.map(m => 
+      m.id === modeId ? { ...m, duration: newDuration } : m
+    ));
+    if (selectedMode === modeId && !isRunning) {
+      setTotalTime(newDuration * 60);
+      setTimeLeft(newDuration * 60);
+    }
+    toast({ title: `${modes.find(m => m.id === modeId)?.name} duration updated to ${newDuration} minutes` });
+  };
+
+  const handleCustomTimer = () => {
+    if (isRunning) return;
+    setTotalTime(customDuration * 60);
+    setTimeLeft(customDuration * 60);
+    setSelectedMode("custom");
+    toast({ title: `Custom timer set: ${customDuration} minutes` });
   };
 
   const handleStart = () => {
@@ -68,12 +103,16 @@ const Focus = () => {
       setCurrentSessionId(sessionId);
     }
     setIsRunning(true);
-    toast({ title: `${currentMode.name} started!`, description: selectedTask ? `Working on: ${selectedTask.title}` : undefined });
+    toast({ 
+      title: `${currentMode?.name || 'Focus'} started!`, 
+      description: selectedTask ? `Working on: ${selectedTask.title}` : undefined 
+    });
   };
 
   const handlePause = () => {
     setIsRunning(false);
     setInterruptions(prev => prev + 1);
+    toast({ title: "Paused", description: "Don't worry, you can continue when ready" });
   };
 
   const handleReset = () => {
@@ -96,7 +135,10 @@ const Focus = () => {
       }
     }
     
-    toast({ title: `Session complete! +${xpGained} XP`, description: `${mins} minutes of focused work` });
+    toast({ 
+      title: `Session complete! +${xpGained} XP`, 
+      description: `${mins} minutes of focused work` 
+    });
     setTimeLeft(totalTime);
     setCurrentSessionId(null);
     setInterruptions(0);
@@ -113,9 +155,97 @@ const Focus = () => {
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="w-6 h-6 text-arise-energy" />Focus</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Target className="w-6 h-6 text-arise-energy" />Focus
+          </h1>
           <p className="text-muted-foreground text-sm">{todaySessions.length} sessions • {totalFocusToday}m today</p>
         </div>
+        <Dialog open={showSettings} onOpenChange={setShowSettings}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Settings className="w-4 h-4 mr-2" />Customize Timer
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Timer Settings</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Custom Duration */}
+              <div className="space-y-3">
+                <Label>Quick Custom Timer</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="number" 
+                    min={1} 
+                    max={180}
+                    value={customDuration}
+                    onChange={(e) => setCustomDuration(parseInt(e.target.value) || 25)}
+                    className="w-24"
+                  />
+                  <span className="self-center text-muted-foreground">minutes</span>
+                  <Button onClick={handleCustomTimer} disabled={isRunning}>
+                    Set Timer
+                  </Button>
+                </div>
+              </div>
+
+              {/* Edit Mode Durations */}
+              <div className="space-y-3">
+                <Label>Edit Mode Durations</Label>
+                <div className="space-y-3">
+                  {modes.map((mode) => (
+                    <div key={mode.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
+                      <div className="flex items-center gap-2">
+                        <mode.icon className={cn("w-4 h-4", mode.color)} />
+                        <span className="font-medium">{mode.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={180}
+                          value={mode.duration}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            if (val > 0) handleUpdateModeDuration(mode.id, val);
+                          }}
+                          className="w-20 text-center"
+                          disabled={isRunning}
+                        />
+                        <span className="text-muted-foreground text-sm">min</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preset Duration Buttons */}
+              <div className="space-y-3">
+                <Label>Quick Presets</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[5, 10, 15, 20, 25, 30, 45, 60, 90].map((mins) => (
+                    <Button 
+                      key={mins} 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setCustomDuration(mins);
+                        if (!isRunning) {
+                          setTotalTime(mins * 60);
+                          setTimeLeft(mins * 60);
+                          setSelectedMode("custom");
+                        }
+                      }}
+                    >
+                      {mins}m
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs defaultValue="timer" className="w-full">
@@ -129,7 +259,15 @@ const Focus = () => {
           {/* Mode Selection */}
           <div className="grid grid-cols-5 gap-2">
             {modes.map((mode) => (
-              <Card key={mode.id} className={cn("glass cursor-pointer hover:bg-secondary/50 transition-all", selectedMode === mode.id && "ring-2 ring-primary", isRunning && "opacity-50 pointer-events-none")} onClick={() => selectMode(mode.id)}>
+              <Card 
+                key={mode.id} 
+                className={cn(
+                  "glass cursor-pointer hover:bg-secondary/50 transition-all", 
+                  selectedMode === mode.id && "ring-2 ring-primary", 
+                  isRunning && "opacity-50 pointer-events-none"
+                )} 
+                onClick={() => selectMode(mode.id)}
+              >
                 <CardContent className="pt-3 pb-3 text-center">
                   <mode.icon className={cn("w-5 h-5 mx-auto mb-1", mode.color)} />
                   <p className="text-xs font-medium">{mode.name}</p>
@@ -153,7 +291,11 @@ const Focus = () => {
                   {pendingTasks.map((task) => (
                     <SelectItem key={task.id} value={task.id}>
                       <span className="flex items-center gap-2">
-                        <span className={cn("w-2 h-2 rounded-full", task.priority === 'high' ? "bg-destructive" : task.priority === 'medium' ? "bg-arise-warning" : "bg-arise-success")} />
+                        <span className={cn(
+                          "w-2 h-2 rounded-full", 
+                          task.priority === 'high' ? "bg-destructive" : 
+                          task.priority === 'medium' ? "bg-arise-warning" : "bg-arise-success"
+                        )} />
                         {task.title}
                       </span>
                     </SelectItem>
@@ -167,7 +309,7 @@ const Focus = () => {
           <Card className="glass">
             <CardContent className="py-8">
               <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">{currentMode.description}</p>
+                <p className="text-sm text-muted-foreground mb-2">{currentMode?.description || 'Custom focus session'}</p>
                 <div className={cn("text-7xl font-bold font-mono", isRunning && "animate-pulse-slow")}>{formatTime(timeLeft)}</div>
                 {selectedTask && <p className="text-sm text-primary mt-2">Working on: {selectedTask.title}</p>}
               </div>
@@ -179,13 +321,37 @@ const Focus = () => {
                 </div>
               </div>
               <div className="flex justify-center gap-4 mt-6">
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={handleReset} disabled={!currentSessionId && timeLeft === totalTime}><RotateCcw className="w-5 h-5" /></Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-12 w-12 rounded-full" 
+                  onClick={handleReset} 
+                  disabled={!currentSessionId && timeLeft === totalTime}
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </Button>
                 {!isRunning ? (
-                  <Button size="icon" className="h-16 w-16 rounded-full glow" onClick={handleStart}><Play className="w-6 h-6 ml-1" /></Button>
+                  <Button size="icon" className="h-16 w-16 rounded-full glow" onClick={handleStart}>
+                    <Play className="w-6 h-6 ml-1" />
+                  </Button>
                 ) : (
-                  <Button size="icon" className="h-16 w-16 rounded-full bg-destructive hover:bg-destructive/90" onClick={handlePause}><Pause className="w-6 h-6" /></Button>
+                  <Button 
+                    size="icon" 
+                    className="h-16 w-16 rounded-full bg-destructive hover:bg-destructive/90" 
+                    onClick={handlePause}
+                  >
+                    <Pause className="w-6 h-6" />
+                  </Button>
                 )}
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={handleComplete} disabled={!currentSessionId || timeLeft === totalTime}><CheckCircle className="w-5 h-5" /></Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-12 w-12 rounded-full" 
+                  onClick={handleComplete} 
+                  disabled={!currentSessionId || timeLeft === totalTime}
+                >
+                  <CheckCircle className="w-5 h-5" />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -203,7 +369,13 @@ const Focus = () => {
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 {["rain", "forest", "cafe", "waves"].map((sound) => (
-                  <Button key={sound} variant={ambientSound === sound ? "default" : "outline"} size="sm" className="flex-1 capitalize" onClick={() => setAmbientSound(ambientSound === sound ? null : sound)}>
+                  <Button 
+                    key={sound} 
+                    variant={ambientSound === sound ? "default" : "outline"} 
+                    size="sm" 
+                    className="flex-1 capitalize" 
+                    onClick={() => setAmbientSound(ambientSound === sound ? null : sound)}
+                  >
                     {sound}
                   </Button>
                 ))}
@@ -221,10 +393,34 @@ const Focus = () => {
 
         <TabsContent value="stats" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card className="glass"><CardContent className="pt-4"><Clock className="w-5 h-5 text-primary mb-2" /><p className="text-2xl font-bold">{totalFocusToday}m</p><p className="text-xs text-muted-foreground">Today</p></CardContent></Card>
-            <Card className="glass"><CardContent className="pt-4"><Target className="w-5 h-5 text-accent mb-2" /><p className="text-2xl font-bold">{completedSessions}</p><p className="text-xs text-muted-foreground">Sessions</p></CardContent></Card>
-            <Card className="glass"><CardContent className="pt-4"><Flame className="w-5 h-5 text-arise-energy mb-2" /><p className="text-2xl font-bold">{stats.currentFocusStreak}</p><p className="text-xs text-muted-foreground">Day Streak</p></CardContent></Card>
-            <Card className="glass"><CardContent className="pt-4"><Star className="w-5 h-5 text-arise-warning mb-2" /><p className="text-2xl font-bold">{avgSessionLength}m</p><p className="text-xs text-muted-foreground">Avg Session</p></CardContent></Card>
+            <Card className="glass">
+              <CardContent className="pt-4">
+                <Clock className="w-5 h-5 text-primary mb-2" />
+                <p className="text-2xl font-bold">{totalFocusToday}m</p>
+                <p className="text-xs text-muted-foreground">Today</p>
+              </CardContent>
+            </Card>
+            <Card className="glass">
+              <CardContent className="pt-4">
+                <Target className="w-5 h-5 text-accent mb-2" />
+                <p className="text-2xl font-bold">{completedSessions}</p>
+                <p className="text-xs text-muted-foreground">Sessions</p>
+              </CardContent>
+            </Card>
+            <Card className="glass">
+              <CardContent className="pt-4">
+                <Flame className="w-5 h-5 text-arise-energy mb-2" />
+                <p className="text-2xl font-bold">{stats.currentFocusStreak}</p>
+                <p className="text-xs text-muted-foreground">Day Streak</p>
+              </CardContent>
+            </Card>
+            <Card className="glass">
+              <CardContent className="pt-4">
+                <Star className="w-5 h-5 text-arise-warning mb-2" />
+                <p className="text-2xl font-bold">{avgSessionLength}m</p>
+                <p className="text-xs text-muted-foreground">Avg Session</p>
+              </CardContent>
+            </Card>
           </div>
 
           <Card className="glass">
@@ -238,7 +434,9 @@ const Focus = () => {
                   return (
                     <div key={mode.id}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="flex items-center gap-2"><mode.icon className={cn("w-4 h-4", mode.color)} />{mode.name}</span>
+                        <span className="flex items-center gap-2">
+                          <mode.icon className={cn("w-4 h-4", mode.color)} />{mode.name}
+                        </span>
                         <span className="text-muted-foreground">{modeMinutes}m ({percentage}%)</span>
                       </div>
                       <Progress value={percentage} className="h-2" />
@@ -253,9 +451,18 @@ const Focus = () => {
             <CardHeader className="pb-2"><CardTitle className="text-base">All-Time Stats</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4 text-center">
-                <div><p className="text-2xl font-bold">{Math.floor(stats.totalFocusMinutes / 60)}h</p><p className="text-xs text-muted-foreground">Total Focus</p></div>
-                <div><p className="text-2xl font-bold">{sessions.length}</p><p className="text-xs text-muted-foreground">Sessions</p></div>
-                <div><p className="text-2xl font-bold">{sessions.length > 0 ? Math.round(stats.totalFocusMinutes / sessions.length) : 0}m</p><p className="text-xs text-muted-foreground">Avg Length</p></div>
+                <div>
+                  <p className="text-2xl font-bold">{Math.floor(stats.totalFocusMinutes / 60)}h</p>
+                  <p className="text-xs text-muted-foreground">Total Focus</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{sessions.length}</p>
+                  <p className="text-xs text-muted-foreground">Sessions</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{sessions.length > 0 ? Math.round(stats.totalFocusMinutes / sessions.length) : 0}m</p>
+                  <p className="text-xs text-muted-foreground">Avg Length</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -273,7 +480,10 @@ const Focus = () => {
                   <CardContent className="pt-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", session.completed ? "bg-arise-success/20" : "bg-secondary")}>
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center", 
+                          session.completed ? "bg-arise-success/20" : "bg-secondary"
+                        )}>
                           <mode.icon className={cn("w-5 h-5", mode.color)} />
                         </div>
                         <div>

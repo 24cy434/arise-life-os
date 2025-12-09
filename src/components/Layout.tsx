@@ -1,6 +1,5 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import AIChat from "./AIChat";
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "./ui/button";
@@ -39,9 +38,6 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
-
-      {/* AI Chat */}
-      <AIChat />
     </div>
   );
 };
