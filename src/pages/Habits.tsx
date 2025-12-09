@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Repeat, Plus, Flame, Trophy, Trash2, Sparkles, Brain, Calendar, CheckCircle2, ArrowRight, MessageCircle } from "lucide-react";
+import { Repeat, Plus, Flame, Trophy, Trash2, Sparkles, Brain, Calendar, CheckCircle2, ArrowRight, Clock, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { useHabits, useCategories, useTasks, useCalendar } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -29,8 +32,16 @@ interface HabitAnalysis {
   schedule_frequency: string;
 }
 
+interface HabitQuestions {
+  availableMinutes: number;
+  preferredTime: string;
+  currentLevel: string;
+  motivation: string;
+  obstacles: string;
+}
+
 const Habits = () => {
-  const { habits, addHabit, deleteHabit } = useHabits();
+  const { habits, addHabit, completeHabit, isCompletedToday, deleteHabit } = useHabits();
   const { categories, addCategory } = useCategories();
   const { addTask } = useTasks();
   const { addEvent } = useCalendar();
@@ -38,20 +49,34 @@ const Habits = () => {
   
   const [isAdding, setIsAdding] = useState(false);
   const [newHabitTitle, setNewHabitTitle] = useState("");
+  const [showQuestionsDialog, setShowQuestionsDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<HabitAnalysis | null>(null);
   const [selectedActions, setSelectedActions] = useState<number[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  
+  // Pre-habit questions
+  const [questions, setQuestions] = useState<HabitQuestions>({
+    availableMinutes: 15,
+    preferredTime: 'morning',
+    currentLevel: 'beginner',
+    motivation: 'self-improvement',
+    obstacles: 'time',
+  });
 
   const today = new Date().toISOString().split('T')[0];
 
-  const handleStartHabit = async () => {
+  const handleStartQuestionnaire = () => {
     if (!newHabitTitle.trim()) {
       toast({ title: "Please enter a habit name", variant: "destructive" });
       return;
     }
+    setShowQuestionsDialog(true);
+  };
 
+  const handleSubmitQuestions = async () => {
+    setShowQuestionsDialog(false);
     setShowAIDialog(true);
     setAiLoading(true);
     setAiAnalysis(null);
@@ -64,7 +89,16 @@ const Habits = () => {
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `I want to build the habit: "${newHabitTitle}". Please analyze this and provide specific daily micro-actions I can take to build this habit over 60 days. Consider behavioral science principles.`
+            content: `I want to build the habit: "${newHabitTitle}". 
+            
+Here's my context:
+- Available time: ${questions.availableMinutes} minutes per day
+- Preferred time: ${questions.preferredTime}
+- Current level: ${questions.currentLevel}
+- Motivation: ${questions.motivation}
+- Main obstacle: ${questions.obstacles}
+
+Please analyze this and provide specific daily micro-actions I can take to build this habit over 60 days. Consider behavioral science principles and my constraints. Create actions that fit within my ${questions.availableMinutes} minute time limit.`
           }],
           type: 'habit_analysis'
         })
@@ -75,31 +109,40 @@ const Habits = () => {
       if (data.parsed && data.parsed.type === 'habit_analysis') {
         setAiAnalysis(data.parsed);
       } else {
-        // Fallback if AI doesn't return proper JSON
+        // Fallback with context-aware defaults
+        const minuteActions = [
+          { mins: 2, task: `Start with just 2 minutes of ${newHabitTitle}` },
+          { mins: 5, task: `Build up to 5 minutes of ${newHabitTitle}` },
+          { mins: 10, task: `Practice ${newHabitTitle} for 10 minutes` },
+          { mins: 15, task: `Develop consistency with 15 minutes` },
+          { mins: 20, task: `Full ${newHabitTitle} session - 20 minutes` },
+        ].filter(a => a.mins <= questions.availableMinutes);
+
         setAiAnalysis({
           habit: newHabitTitle,
-          actions: [
-            { number: 1, task: `Start with 2 minutes of ${newHabitTitle}`, frequency: 'daily', estimatedMinutes: 2 },
-            { number: 2, task: `Increase to 5 minutes of ${newHabitTitle}`, frequency: 'daily', estimatedMinutes: 5 },
-            { number: 3, task: `Practice ${newHabitTitle} for 10 minutes`, frequency: 'daily', estimatedMinutes: 10 },
-            { number: 4, task: `Build consistency with 15 minutes`, frequency: 'daily', estimatedMinutes: 15 },
-            { number: 5, task: `Full ${newHabitTitle} session - 20 minutes`, frequency: 'daily', estimatedMinutes: 20 },
-          ],
-          cue: 'After your morning routine',
-          implementation_intention: `When I finish my morning routine, I will practice ${newHabitTitle}`,
+          actions: minuteActions.map((a, i) => ({
+            number: i + 1,
+            task: a.task,
+            frequency: 'daily',
+            estimatedMinutes: a.mins,
+          })),
+          cue: questions.preferredTime === 'morning' ? 'After waking up' : 
+               questions.preferredTime === 'afternoon' ? 'After lunch' : 
+               questions.preferredTime === 'evening' ? 'After dinner' : 'At your chosen time',
+          implementation_intention: `When I ${questions.preferredTime === 'morning' ? 'wake up' : questions.preferredTime === 'afternoon' ? 'finish lunch' : 'finish dinner'}, I will practice ${newHabitTitle}`,
           duration_days: 60,
           schedule_frequency: 'once'
         });
       }
     } catch (error) {
       console.error("AI analysis error:", error);
-      toast({ title: "AI analysis failed, using default plan", variant: "destructive" });
+      toast({ title: "AI analysis failed, using personalized plan", variant: "destructive" });
       setAiAnalysis({
         habit: newHabitTitle,
         actions: [
-          { number: 1, task: `Start with 2 minutes of ${newHabitTitle}`, frequency: 'daily', estimatedMinutes: 2 },
-          { number: 2, task: `Increase to 5 minutes of ${newHabitTitle}`, frequency: 'daily', estimatedMinutes: 5 },
-          { number: 3, task: `Practice ${newHabitTitle} for 10 minutes`, frequency: 'daily', estimatedMinutes: 10 },
+          { number: 1, task: `Start with ${Math.min(2, questions.availableMinutes)} minutes of ${newHabitTitle}`, frequency: 'daily', estimatedMinutes: Math.min(2, questions.availableMinutes) },
+          { number: 2, task: `Increase to ${Math.min(5, questions.availableMinutes)} minutes of ${newHabitTitle}`, frequency: 'daily', estimatedMinutes: Math.min(5, questions.availableMinutes) },
+          { number: 3, task: `Practice ${newHabitTitle} for ${Math.min(10, questions.availableMinutes)} minutes`, frequency: 'daily', estimatedMinutes: Math.min(10, questions.availableMinutes) },
         ],
         cue: 'After your morning routine',
         implementation_intention: `When I finish my morning routine, I will practice ${newHabitTitle}`,
@@ -136,20 +179,17 @@ const Habits = () => {
     const selectedActionsList = aiAnalysis.actions.filter(a => selectedActions.includes(a.number));
     const today = new Date();
     
-    // Distribute actions across the 60-day period
     const daysPerAction = Math.floor(aiAnalysis.duration_days / selectedActionsList.length);
     
     selectedActionsList.forEach((action, index) => {
       const startDay = index * daysPerAction;
       const endDay = (index + 1) * daysPerAction;
       
-      // Create tasks for each day in this action's period
       for (let day = startDay; day < endDay && day < aiAnalysis.duration_days; day++) {
         const taskDate = new Date(today);
         taskDate.setDate(taskDate.getDate() + day);
         const dateStr = taskDate.toISOString().split('T')[0];
         
-        // Add task
         addTask({
           title: action.task,
           description: `Habit: ${newHabitTitle} - ${aiAnalysis.cue}`,
@@ -161,13 +201,13 @@ const Habits = () => {
           estimatedMinutes: action.estimatedMinutes
         });
 
-        // Add calendar event (for first week and weekly thereafter)
         if (day < 7 || day % 7 === 0) {
           addEvent({
             title: action.task,
             type: 'habit',
             date: dateStr,
-            time: '08:00',
+            time: questions.preferredTime === 'morning' ? '07:00' : 
+                  questions.preferredTime === 'afternoon' ? '13:00' : '19:00',
             duration: `${action.estimatedMinutes}m`,
             color: 'bg-arise-success'
           });
@@ -185,6 +225,13 @@ const Habits = () => {
     setAiAnalysis(null);
     setSelectedActions([]);
     setIsAdding(false);
+    setQuestions({
+      availableMinutes: 15,
+      preferredTime: 'morning',
+      currentLevel: 'beginner',
+      motivation: 'self-improvement',
+      obstacles: 'time',
+    });
   };
 
   const handleAddCategory = () => {
@@ -194,7 +241,6 @@ const Habits = () => {
     toast({ title: "Category added!" });
   };
 
-  // Calculate completion stats
   const habitStats = habits.map(h => {
     const last30Days = Array.from({ length: 30 }, (_, i) => {
       const d = new Date();
@@ -209,10 +255,14 @@ const Habits = () => {
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Repeat className="w-6 h-6 text-accent" />Habits</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Repeat className="w-6 h-6 text-accent" />Habits
+          </h1>
           <p className="text-muted-foreground text-sm">AI-powered habit building with behavioral science</p>
         </div>
-        <Button onClick={() => setIsAdding(true)} size="sm"><Plus className="w-4 h-4 mr-2" />New Habit</Button>
+        <Button onClick={() => setIsAdding(true)} size="sm">
+          <Plus className="w-4 h-4 mr-2" />New Habit
+        </Button>
       </div>
 
       {/* Add Category */}
@@ -250,17 +300,139 @@ const Habits = () => {
               className="text-lg"
             />
             <p className="text-sm text-muted-foreground">
-              AI will analyze your habit and create a personalized 60-day plan with daily micro-actions based on behavioral science.
+              We'll ask a few questions to personalize your 60-day habit plan based on your schedule and preferences.
             </p>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setIsAdding(false)}>Cancel</Button>
-              <Button className="flex-1 gradient-primary" onClick={handleStartHabit}>
-                <Sparkles className="w-4 h-4 mr-2" />Analyze with AI
+              <Button className="flex-1 gradient-primary" onClick={handleStartQuestionnaire}>
+                <HelpCircle className="w-4 h-4 mr-2" />Continue to Questions
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Questions Dialog */}
+      <Dialog open={showQuestionsDialog} onOpenChange={setShowQuestionsDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-primary" />
+              Personalize Your Habit Plan
+            </DialogTitle>
+            <DialogDescription>
+              Answer these questions to help AI create a plan that fits your lifestyle.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-6 pr-4">
+              {/* Available Minutes */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  How many minutes can you dedicate daily?
+                </Label>
+                <div className="px-2">
+                  <Slider
+                    value={[questions.availableMinutes]}
+                    onValueChange={(v) => setQuestions({ ...questions, availableMinutes: v[0] })}
+                    min={5}
+                    max={120}
+                    step={5}
+                  />
+                  <p className="text-center mt-2 text-lg font-bold text-primary">{questions.availableMinutes} minutes</p>
+                </div>
+              </div>
+
+              {/* Preferred Time */}
+              <div className="space-y-3">
+                <Label>What's your preferred time to practice?</Label>
+                <RadioGroup 
+                  value={questions.preferredTime} 
+                  onValueChange={(v) => setQuestions({ ...questions, preferredTime: v })}
+                  className="flex flex-wrap gap-3"
+                >
+                  {['morning', 'afternoon', 'evening', 'flexible'].map((time) => (
+                    <div key={time} className="flex items-center space-x-2">
+                      <RadioGroupItem value={time} id={time} />
+                      <Label htmlFor={time} className="capitalize">{time}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Current Level */}
+              <div className="space-y-3">
+                <Label>What's your current experience level?</Label>
+                <RadioGroup 
+                  value={questions.currentLevel} 
+                  onValueChange={(v) => setQuestions({ ...questions, currentLevel: v })}
+                  className="flex flex-wrap gap-3"
+                >
+                  {['beginner', 'intermediate', 'advanced'].map((level) => (
+                    <div key={level} className="flex items-center space-x-2">
+                      <RadioGroupItem value={level} id={level} />
+                      <Label htmlFor={level} className="capitalize">{level}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Motivation */}
+              <div className="space-y-3">
+                <Label>What's driving this habit?</Label>
+                <RadioGroup 
+                  value={questions.motivation} 
+                  onValueChange={(v) => setQuestions({ ...questions, motivation: v })}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {[
+                    { value: 'self-improvement', label: 'Self Improvement' },
+                    { value: 'health', label: 'Health & Wellness' },
+                    { value: 'career', label: 'Career Growth' },
+                    { value: 'creativity', label: 'Creativity' },
+                  ].map((m) => (
+                    <div key={m.value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={m.value} id={m.value} />
+                      <Label htmlFor={m.value}>{m.label}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Obstacles */}
+              <div className="space-y-3">
+                <Label>What's your biggest obstacle?</Label>
+                <RadioGroup 
+                  value={questions.obstacles} 
+                  onValueChange={(v) => setQuestions({ ...questions, obstacles: v })}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {[
+                    { value: 'time', label: 'Lack of Time' },
+                    { value: 'motivation', label: 'Motivation' },
+                    { value: 'consistency', label: 'Consistency' },
+                    { value: 'environment', label: 'Environment' },
+                  ].map((o) => (
+                    <div key={o.value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={o.value} id={o.value} />
+                      <Label htmlFor={o.value}>{o.label}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <div className="flex gap-2 mt-4">
+            <Button variant="outline" className="flex-1" onClick={() => setShowQuestionsDialog(false)}>Back</Button>
+            <Button className="flex-1" onClick={handleSubmitQuestions}>
+              <Sparkles className="w-4 h-4 mr-2" />Generate AI Plan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* AI Analysis Dialog */}
       <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
@@ -280,7 +452,8 @@ const Habits = () => {
               <div className="w-12 h-12 rounded-full gradient-primary flex items-center justify-center mx-auto animate-pulse">
                 <Sparkles className="w-6 h-6 text-primary-foreground" />
               </div>
-              <p className="mt-4 text-muted-foreground">Analyzing your habit...</p>
+              <p className="mt-4 text-muted-foreground">Analyzing your habit with AI...</p>
+              <p className="text-xs text-muted-foreground mt-2">Considering your {questions.availableMinutes} minute daily commitment</p>
             </div>
           ) : aiAnalysis && (
             <ScrollArea className="max-h-[50vh]">
@@ -362,54 +535,71 @@ const Habits = () => {
             </CardContent>
           </Card>
         ) : (
-          habitStats.map((habit) => (
-            <Card key={habit.id} className="glass group">
-              <CardContent className="pt-4">
-                <div className="flex items-start gap-3">
-                  <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", habit.color)}>
-                    <Repeat className="w-5 h-5 text-primary-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">{habit.title}</h3>
-                      {habit.streak > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-arise-energy">
-                          <Flame className="w-3 h-3" />{habit.streak} day streak
-                        </span>
+          habitStats.map((habit) => {
+            const done = isCompletedToday(habit.id);
+            return (
+              <Card key={habit.id} className="glass group">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={() => {
+                        if (!done) {
+                          completeHabit(habit.id);
+                          toast({ title: "Habit completed! +5 XP" });
+                        }
+                      }}
+                      className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                        done ? "bg-arise-success" : habit.color + " opacity-60 hover:opacity-100"
                       )}
-                    </div>
-                    {habit.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{habit.description}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary">{habit.category}</span>
-                      <span className="text-xs text-muted-foreground">{habit.frequency}</span>
-                      {habit.bestStreak > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Trophy className="w-3 h-3" />Best: {habit.bestStreak}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span>30-day completion</span>
-                        <span>{habit.completionRate}%</span>
+                    >
+                      {done ? <CheckCircle2 className="w-5 h-5 text-primary-foreground" /> : <Repeat className="w-5 h-5 text-primary-foreground" />}
+                    </button>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className={cn("font-medium", done && "line-through text-muted-foreground")}>{habit.title}</h3>
+                        {habit.streak > 0 && (
+                          <span className="flex items-center gap-1 text-xs text-arise-energy">
+                            <Flame className="w-3 h-3" />{habit.streak} day streak
+                          </span>
+                        )}
                       </div>
-                      <Progress value={habit.completionRate} className="h-1.5" />
+                      {habit.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{habit.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-secondary">{habit.category}</span>
+                        <span className="text-xs text-muted-foreground">{habit.frequency}</span>
+                        {habit.bestStreak > 0 && (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Trophy className="w-3 h-3" />Best: {habit.bestStreak}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span>30-day completion</span>
+                          <span>{habit.completionRate}%</span>
+                        </div>
+                        <Progress value={habit.completionRate} className="h-1.5" />
+                      </div>
                     </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="opacity-0 group-hover:opacity-100 h-8 w-8" 
+                      onClick={() => {
+                        deleteHabit(habit.id);
+                        toast({ title: "Habit deleted" });
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="opacity-0 group-hover:opacity-100 h-8 w-8" 
-                    onClick={() => deleteHabit(habit.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
@@ -417,13 +607,12 @@ const Habits = () => {
       <Card className="glass border-primary/20">
         <CardContent className="pt-4">
           <div className="flex items-start gap-3">
-            <MessageCircle className="w-5 h-5 text-primary mt-0.5" />
+            <Brain className="w-5 h-5 text-primary mt-0.5" />
             <div>
-              <h4 className="font-medium text-sm">How it works</h4>
+              <p className="font-medium text-sm">How it works</p>
               <p className="text-xs text-muted-foreground mt-1">
-                1. Enter your desired habit → 2. AI analyzes and creates micro-actions → 
-                3. Select which actions fit your lifestyle → 4. Tasks are auto-scheduled → 
-                5. Complete daily tasks to build automaticity → 6. Habit becomes automatic after ~66 days
+                Answer personalized questions → AI creates micro-actions based on your time & preferences → 
+                Tasks are scheduled over 60 days → Complete daily tasks to auto-complete habits → Build lasting change.
               </p>
             </div>
           </div>
